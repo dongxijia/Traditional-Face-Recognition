@@ -1,6 +1,7 @@
 import math
 import os
 import argparse
+import time
 
 import cv2
 import numpy as np
@@ -26,6 +27,7 @@ class MyGaborFace(BaseFace):
             img_templete = self.imgs_training[:, i].reshape(self.height, self.width)
             feature_vectors = self.extractFeatures(img_templete)
             self.feaures_vectors.append(feature_vectors)
+        print('Init features down!')
 
     def cal_distance_features(self, fv1, fv2):
         #输入是features的输出k，是一个图像的10个gabor特征list
@@ -43,8 +45,36 @@ class MyGaborFace(BaseFace):
         img = cv2.imread(path_img, 0)
         fv_unkown_img = self.extractFeatures(img)
         distes = [self.cal_distance_features(fv_unkown_img, fv_i) for fv_i in self.feaures_vectors]
-        print('Face set contains %d faces'%len(distes))
+        #print('Face set contains %d faces'%len(distes))
         return int(distes.index(min(distes))/self.N_training_img)+1
+
+    def verification(self):
+        print('> Evaluation %s faces started' %self.name_dataset )
+        results_file = os.path.join('results', '%s_results_t.txt' % self.name_dataset)
+
+        if not os.path.exists('results'):
+            os.makedirs('results')
+        test_cout = self.N_testing_img * self.N_identity
+        cout_correct = 0.0
+        with open(results_file, 'w') as f:
+            for id_face in range(1, self.N_identity + 1):
+                # 把没有用于训练的图像拿来做验证
+                for id_test in range(1, 11):
+                    if id_test not in self.ids_training[id_face - 1]:
+                        path_to_img = os.path.join(self.dir_identity, str(id_face), str(id_test) + self.type_img)
+                        id_result = self.find_identity(path_to_img)
+                        result = (id_result == id_face)
+
+                        if result == True:
+                            cout_correct += 1
+                            f.write('image: %s\nresult: correct\n\n' % (path_to_img))
+                        else:
+                            f.write('image: %s\nresult: wrong, got %2d\n\n' % (path_to_img, id_result))
+
+            print('> Evaluating %s faces ended' % self.name_dataset)
+            self.accuary = float(100. * cout_correct / test_cout)
+            print('Correct: ' + str(self.accuary) + '%')
+            f.write('Correct: %.2f\n' % (self.accuary))
 
 
     def bulid_filters(self, w, h, num_theta, fi, sigma_x, sigma_y, psi):
@@ -125,7 +155,7 @@ def parse_args():
     #                    help='training and testing set directory')
     parser.add_argument('--size_img', default='92*112', help='image size')
     parser.add_argument('--N_identity', default=40, help='Numbers of dataset person')
-    parser.add_argument('--N_training_img', default=5, help='Number of person for training in a indentity, rest is test')
+    parser.add_argument('--N_training_img', default=6, help='Number of person for training in a indentity, rest is test')
 
     args = parser.parse_args()
 
@@ -134,12 +164,22 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    sample_Gabor = MyGaborFace(args.name_dataset, args.dir_data, args.size_img, args.N_identity, args.N_training_img)
-    sample_Gabor.init_features()
-    for i in range(1, 41):
-        face_id = '/home/zx/dongxijia/Eigenfaces/Eigenfaces/att_faces/%d/3.pgm'%i
-        result_id = sample_Gabor.find_identity('/home/zx/dongxijia/Eigenfaces/Eigenfaces/att_faces/%d/5.pgm'%i)
-        print('Real_id %s, result_id is %d' % (face_id, result_id))
+
+    accuarys = []
+    since = time.time()
+    for i in range(1, 10):
+        #face_id = '/home/zx/dongxijia/Eigenfaces/Eigenfaces/att_faces/%d/3.pgm'%i
+        #result_id = sample_Gabor.find_identity('/home/zx/dongxijia/Eigenfaces/Eigenfaces/att_faces/%d/5.pgm'%i)
+        sample_Gabor = MyGaborFace(args.name_dataset, args.dir_data, args.size_img, args.N_identity,
+                                   args.N_training_img)
+        sample_Gabor.init_features()
+        sample_Gabor.verification()
+        #print('Real_id %s, result_id is %d' % (face_id, result_id))
+        accuarys.append(sample_Gabor.accuary)
+        average_time = (time.time() - since) / 10
+    print('Average time: %d s' % average_time)
+    print('Number of training images %d' % args.N_training_img)
+    print('Mean accury is %.2f' % np.mean(accuarys))
 
 
 
