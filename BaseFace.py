@@ -24,7 +24,7 @@ class BaseFace():
         #Imgs_total  = np.empty(shape=(self.S, self.N_total_training_img),dtype='float64')
         if self.name_dataset == 'att':
             self.type_img = '.pgm'
-        if self.name_dataset == 'CASIA-500':
+        if self.name_dataset.split('-')[0] == 'CASIA':
             self.type_img = '.png'
 
         #初始化np，因为np的array不能改变形状的
