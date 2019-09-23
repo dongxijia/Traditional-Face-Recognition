@@ -1,5 +1,5 @@
 # Traditional-Face-Recognition
-Eigenface vs Fisherface vs LBPH vs GaborFace vs HOG.
+Eigenface vs Fisherface vs LBPH vs GaborFace vs HOG+SVM.
 
 Python3 implementation without opencv.
 
