@@ -75,7 +75,17 @@ class SIFT():
             self.DoG_pyr_level_3[:, :, i] = pyr_level_3[:, :, i + 1] - pyr_level_3[:, :, i]
             self.DoG_pyr_level_4[:, :, i] = pyr_level_4[:, :, i + 1] - pyr_level_4[:, :, i]
 
-    def find_max_min_points(self):
+    def find_extrema_points(self, threshold=1):
+        print('First extrema detecting...')
+        #5个查分尺度，除去边界的两个尺度，还剩3个尺度
+
+    def find_extrema_points_in_octave(self, DoG_level_x, magrin):
+        '''
+
+        :param DoG_level_x: Dog_img
+        :param magrin: margin of height and width
+        :return:
+        '''
         pass
 
 
