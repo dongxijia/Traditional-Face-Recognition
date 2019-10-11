@@ -9,8 +9,11 @@ import progressbar
 from multiprocessing import Pool
 
 
-def _cal_feature(extractor, integral_img):
-    return extractor.cal_feature_one_haar(integral_img)
+def _cal_feature(integral_img, extractors):
+    features = []
+    for extractor in extractors:
+        features.append(extractor.cal_feature_one_haar(integral_img))
+    return np.array(features)
 
 
 type_haar_list = ['two_vertical', 'two_horizontal', 'three_vertical', 'three_horizontal', 'four']
@@ -18,7 +21,7 @@ type_haar_list = ['two_vertical', 'two_horizontal', 'three_vertical', 'three_hor
 size_haar_list = [(1, 2), (2, 1), (1, 3), (3, 1), (2, 2)]
 
 class Haar_extractor():
-    def __init__(self, type_haar, p_top_left, width_haar, height_haar, threshold=0, polarity=1, weight=1):
+    def __init__(self, type_haar, p_top_left, width_haar, height_haar, threshold=0.11, polarity=-1, weight=1):
         #位置也是Haar特征提取器的属性，因为1469个特征提取器不仅是用来提取特征的，也是用来分类的,后面需要选取这个这些特征提取器
         #那么包括位置的特征提取器，不能在类方法中计算变换位置的Haar特征
         self.type_haar = type_haar_list[type_haar]
@@ -73,7 +76,7 @@ class Haar_extractor():
 
         #vote
         #结果是1或是-1，haar特征的触发结果，暗示分类结果
-
+        #加权投票
         return self.weight_haar*(1 if score < self.polarity_haar*self.threshold_haar else -1)
 
 
@@ -157,21 +160,26 @@ class VJ_detector():
         #use as many as cpus
         since = time.time()
         pool = Pool(processes=None)
+        votes_faces = pool.map(partial(_cal_feature, extractors=extractors), integral_img_faces)
+
         #如果想要顺序执行，chunksize=1，但是非常慢
-        for i in bar(range(num_pos)):
+        #for i in bar(range(num_pos)):
             #这个用法是对同一张图，并行计算Haar特征，所以不会引起乱序的问题
-            votes[i, :] = np.array(list(pool.map(partial(_cal_feature, integral_img=integral_img_faces[i]), extractors)))
+
+            #votes[i, :] = np.array(list(pool.map(partial(_cal_feature, integral_img=integral_img_faces[i]), extractors)))
 
         #不需要顺序执行，只要分开执行正例和反例就行了
         print('faces haar extract done...')
         #pool.close()
         #pool.join()
         #pool = Pool(processes=None)
-        bar = progressbar.ProgressBar()
+        #bar = progressbar.ProgressBar()
 
-        for i in bar(range(num_neg)):
-            votes[i+num_pos, :] = np.array(list(pool.map(partial(_cal_feature, integral_img=integral_img_no_faces[i]),
-                                                         extractors)))
+        votes_no_faces = pool.map(partial(_cal_feature, extractors=extractors), integral_img_no_faces)
+
+        # for i in bar(range(num_neg)):
+        #     votes[i+num_pos, :] = np.array(list(pool.map(partial(_cal_feature, integral_img=integral_img_no_faces[i]),
+        #                                                  extractors)))
 
         print('non-faces haar extract done...')
         pool.close()
@@ -179,6 +187,7 @@ class VJ_detector():
 
         time_fly = time.time() - since
         print('Using time %s'%time_fly)
+        votes = np.array(votes_faces + votes_no_faces)
         print(votes.shape)
 
         print('Extract haar features done...')
@@ -240,10 +249,10 @@ class VJ_detector():
         correct_faces = 0
         correct_no_faces = 0
         for face in integral_img_faces:
-            correct_faces += 1 if sum([_cal_feature(classifier, face) for classifier in self.classifiers]) >= 0 else 0
+            correct_faces += 1 if sum(_cal_feature(face,self.classifiers)) >= 0 else 0
 
         for no_face in integral_img_no_faces:
-            correct_no_faces += 1 if sum([_cal_feature(classifier, no_face) for classifier in self.classifiers]) < 0 else 0
+            correct_no_faces += 1 if sum(_cal_feature(no_face, self.classifiers)) < 0 else 0
 
         print('N of faces is %d\n correct is %d'%(len(integral_img_faces), correct_faces))
 
